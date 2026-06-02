@@ -1,0 +1,103 @@
+================================================================
+  RHODOTRON FDFD EIGENSOLVER — CONFORMAL IBC RESULTS
+================================================================
+
+  Date: Tue Jun  2 21:23:50 2026
+
+  GEOMETRY
+  --------
+    Inner radius  a       = 0.3333 m
+    Outer radius  b       = 1.0000 m
+    Cavity length L       = 1.3950 m
+    Beam passes           = 10
+    Pipe radius           = 12.5 mm
+    Aperture radius       = 17.5 mm
+    Pipe length           = 50.0 mm
+    Wall conductivity     = 5.80e+07 S/m (copper)
+
+  GRID
+  ----
+    Nr=88, Nphi=256, Nz=117
+    dr=0.008144 m, dphi=0.024544 rad (1.406 deg), dz=0.016607 m
+    Total DOFs            = 8012544
+    Endplate indices      = k_z0=17, k_zL=101
+
+  ANALYTICAL REFERENCE (TEM coaxial HWR, no pipes)
+  ------------------------------------------------
+    k²                    = 5.0716740027 1/m²
+    Frequency             = 107.452494 MHz
+    Q₀ (copper)           = 48202
+    Geometry factor G     = 130.36 Ohm
+    R/Q per crossing      = 83.8774 Ohm (linac)
+    R/Q per crossing      = 41.9387 Ohm (circuit)
+
+  PEC RESULTS (full model with pipes)
+  -----------------------------------
+    k²                    = 5.0685120724 1/m²
+    Frequency             = 107.418993 MHz
+    Q₀ (surface integral) = 0
+    Solve time            = 44.9 s
+    R/Q per crossing      = 81.0240 Ohm (linac)
+    R/Q per crossing      = 40.5120 Ohm (circuit)
+    R/Q per pass          = 324.0960 Ohm (linac)
+    R/Q total (10 passes) = 32409.60 Ohm (linac)
+    V_gap spread          = 0.5766%
+
+  CONFORMAL IBC RESULTS (Dey-Mittra, iterative RQI+GMRES)
+  --------------------------------------------------------
+    Re(k²)                = 5.0683994946 1/m²
+    Im(k²)                = -1.053155e-04 1/m²
+    Frequency             = 107.417800 MHz
+    Q (from eigenvalue)   = 48126
+    Converged             = YES
+    Residual              = 1.19e-02
+    RQI iterations        = 3
+    Solve time            = 701.1 s
+    R/Q per crossing      = 81.1484 Ohm (linac)
+    R/Q per crossing      = 40.5742 Ohm (circuit)
+    R/Q per pass          = 324.5938 Ohm (linac)
+    R/Q total (10 passes) = 32459.38 Ohm (linac)
+    V_gap spread          = 0.4167%
+
+  COMPARISON
+  ----------
+                                      Analytical           PEC  IBC Conformal
+                                      ----------           ---  -------------
+    Frequency (MHz)                     107.4525      107.4190      107.4178
+    Q factor                               48202             0         48126
+    R/Q per crossing (linac, Ohm)        83.8774       81.0240       81.1484
+    R/Q total (linac, Ohm)                   —      32409.60      32459.38
+
+    f shift (IBC vs PEC)      = -0.0011%
+    Q shift (IBC vs PEC surf) = +0.00%
+    R/Q error (PEC vs ana)    = -3.40%
+    R/Q error (IBC vs ana)    = -3.25%
+
+  PER-PASS R/Q BREAKDOWN (IBC, linac convention)
+  -----------------------------------------------
+     Pass     phi_entry       V_entry        V_exit        V_pass    R/Q_pass
+        1       0.00 deg  -1.932954e-01  -1.932938e-01  3.865892e-01    324.7377
+        2      18.00 deg  -1.934369e-01  -1.933888e-01  3.868257e-01    325.1352
+        3      36.00 deg  -1.929568e-01  -1.928623e-01  3.858190e-01    323.4451
+        4      54.00 deg  -1.930387e-01  -1.928985e-01  3.859372e-01    323.6434
+        5      72.00 deg  -1.936659e-01  -1.934860e-01  3.871519e-01    325.6838
+        6      90.00 deg  -1.936004e-01  -1.934041e-01  3.870045e-01    325.4358
+        7     108.00 deg  -1.936610e-01  -1.934831e-01  3.871441e-01    325.6706
+        8     126.00 deg  -1.930329e-01  -1.928955e-01  3.859285e-01    323.6286
+        9     144.00 deg  -1.929521e-01  -1.928606e-01  3.858127e-01    323.4344
+       10     162.00 deg  -1.934337e-01  -1.933887e-01  3.868224e-01    325.1297
+
+  IBC PHYSICS
+  -----------
+    Surface resistance Rs = 2.7040 mOhm
+    Skin depth delta      = 6.376 um
+    alpha = Rs/(w*mu0)    = 3.188145e-06
+    |Im(E)/Re(E)|         ~ 1/(2Q) = 1.04e-05
+
+  EXPORTED FIELD FILES
+  --------------------
+    PEC fields:   pec_*  (10 CSV files)
+    IBC fields:   ibc_*  (10 CSV files)
+    See file headers for dimensions and units.
+
+================================================================

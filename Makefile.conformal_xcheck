@@ -1,0 +1,60 @@
+# ============================================================
+# Makefile.conformal_xcheck — GPU cross-check for Stage 2
+#
+# Builds bench_gpu_conformal_xcheck against the project's GPU
+# conformal-pipe operator. Uses g++ for plain C++ sources and
+# nvcc for CUDA, matching the main project build.
+#
+#   make -f Makefile.conformal_xcheck
+#   ./bench_gpu_conformal_xcheck 32
+#
+# Then compare against the CPU run at the same N:
+#   ./test_conformal_cpu 32          # CPU  (Makefile.conformal)
+#   ./bench_gpu_conformal_xcheck 32  # GPU
+# and diff the RESULT lines (k2_re should agree to ~1e-10).
+# ============================================================
+
+CXX        = g++
+CXXFLAGS   = -O2 -std=c++11
+NVCC       = nvcc
+NVCCFLAGS  = -O3 -arch=sm_86 --use_fast_math
+CUDA_PATH ?= /usr/local/cuda
+CUDA_INC   = -I$(CUDA_PATH)/include
+CUDA_LIB   = -L$(CUDA_PATH)/lib64
+LDLIBS     = -lcudart -lm
+
+# Plain C++ host sources (geometry engine + CPU operator base)
+CPP_OBJS = curl_E.cx.o curl_H.cx.o curlcurl_operator.cx.o \
+           pipe_model.cx.o conformal_geometry.cx.o
+
+# CUDA sources the conformal pipe operator + eigensolver need
+CU_OBJS  = cuda_fields.cx.o cuda_vector_ops.cx.o cuda_curls.cx.o \
+           cuda_operator.cx.o cuda_eigensolver.cx.o cuda_pipe_model.cx.o \
+           cuda_conformal_curls.cx.o cuda_conformal_pipe.cx.o
+
+bench_gpu_conformal_xcheck: bench_gpu_conformal_xcheck.cx.o $(CPP_OBJS) $(CU_OBJS)
+	$(NVCC) $(NVCCFLAGS) $^ -o $@ $(CUDA_LIB) $(LDLIBS)
+
+bench_gpu_conformal_xcheck.cx.o: bench_gpu_conformal_xcheck.cu
+	$(NVCC) $(NVCCFLAGS) $(CUDA_INC) -c $< -o $@
+
+# Plain C++ host sources -> g++
+curl_E.cx.o: curl_E.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+curl_H.cx.o: curl_H.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+curlcurl_operator.cx.o: curlcurl_operator.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+pipe_model.cx.o: pipe_model.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+conformal_geometry.cx.o: conformal_geometry.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# CUDA sources -> nvcc
+%.cx.o: %.cu
+	$(NVCC) $(NVCCFLAGS) $(CUDA_INC) -c $< -o $@
+
+clean:
+	rm -f *.cx.o bench_gpu_conformal_xcheck
+
+.PHONY: clean

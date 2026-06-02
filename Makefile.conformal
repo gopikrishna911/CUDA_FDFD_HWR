@@ -1,0 +1,61 @@
+# ============================================================
+# Makefile.conformal — Stage 2 CPU conformal-pipe path
+#
+# Builds the conformal smoke test (test_conformal_cpu) and the
+# conformal object files. Reuses the project's geometry engine
+# (pipe_model.cpp, conformal_geometry.cpp) and the Stage 1 CPU
+# reference (cpu_reference.cpp, cpu_complex.cpp).
+#
+# Place all bench files in the same directory as the project sources.
+#
+#   make -f Makefile.conformal test_conformal_cpu        # serial
+#   make -f Makefile.conformal OMP=1 test_conformal_cpu  # OpenMP
+#   make -f Makefile.conformal ASAN=1 test_conformal_cpu # AddressSanitizer
+#   ./test_conformal_cpu 32        # grid size N (cube; radially extended)
+#   make -f Makefile.conformal clean
+# ============================================================
+
+CXX      = g++
+STD      = -std=c++11
+OPT      = -O3 -march=native
+WARN     = -Wall -Wextra
+
+ifeq ($(ASAN),1)
+  OPT  = -O1 -g -fsanitize=address
+endif
+ifeq ($(OMP),1)
+  OMPFLAGS = -fopenmp
+endif
+
+CXXFLAGS = $(STD) $(OPT) $(WARN) $(OMPFLAGS)
+LDFLAGS  = -lm $(OMPFLAGS)
+
+# Stage 1 + Stage 2 CPU reference
+CPU_SRCS = cpu_reference.cpp cpu_complex.cpp cpu_conformal.cpp
+# Project host sources the conformal path depends on
+PROJ_SRCS = curl_E.cpp curl_H.cpp curlcurl_operator.cpp \
+            pipe_model.cpp conformal_geometry.cpp
+
+OBJS = $(CPU_SRCS:.cpp=.cf.o) $(PROJ_SRCS:.cpp=.cf.o)
+
+# --- OMP build-state guard -------------------------------------------------
+# Stale object files are the #1 cause of "I built with OMP=1 but it still
+# says threads=1". We stamp the current OMP state; if it changes, the stamp
+# is rewritten and ALL objects rebuild (they depend on the stamp). This makes
+# `make OMP=1` correct even without a manual `make clean` first.
+OMP_STATE := omp$(OMP)
+.omp_state: FORCE
+	@[ "`cat .omp_state 2>/dev/null`" = "$(OMP_STATE)" ] || echo "$(OMP_STATE)" > .omp_state
+FORCE:
+
+test_conformal_cpu: test_conformal_cpu.cf.o $(OBJS)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+	@echo "built test_conformal_cpu  (OMP=$(OMP); run it and check 'threads=N' in output)"
+
+%.cf.o: %.cpp .omp_state
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+clean:
+	rm -f *.cf.o test_conformal_cpu .omp_state
+
+.PHONY: clean FORCE

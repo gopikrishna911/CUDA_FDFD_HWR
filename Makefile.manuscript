@@ -1,0 +1,39 @@
+# Makefile.manuscript
+#
+# Builds test_manuscript_3stage, reusing the project's object set
+# (the same one test_conformal_ibc_full uses).
+#
+# Usage: make -f Makefile.manuscript
+
+NVCC      = nvcc
+NVCCFLAGS = -O3 -arch=sm_86 --use_fast_math
+CUDA_LIB  =
+CUDA_LDFLAGS =
+
+# Object set identical to test_conformal_ibc_full
+OBJS = curl_E.o curl_H.o curlcurl_operator.o pipe_model.o \
+       conformal_geometry.o \
+       cuda_fields.o cuda_vector_ops.o cuda_curls.o cuda_operator.o \
+       cuda_pipe_model.o cuda_conformal_curls.o cuda_conformal_pipe.o \
+       cuda_eigensolver.o q_factor.o r_over_q.o field_export.o \
+       test_manuscript_3stage.o
+
+TARGET = test_manuscript_3stage
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(NVCC) $(OBJS) -o $(TARGET) $(CUDA_LIB) $(CUDA_LDFLAGS)
+
+# Use the project's existing object recipes — they already exist from a
+# normal `make` of the parent project. If the .o files aren't there yet,
+# run `make` first in the same directory (it'll build them once), then
+# `make -f Makefile.manuscript` only compiles the new test_manuscript_3stage.o
+# and links against the rest.
+test_manuscript_3stage.o: test_manuscript_3stage.cpp
+	$(NVCC) $(NVCCFLAGS) -x cu -c $< -o $@
+
+clean:
+	rm -f test_manuscript_3stage.o $(TARGET)
+
+.PHONY: all clean

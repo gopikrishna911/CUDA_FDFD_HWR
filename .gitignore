@@ -1,0 +1,60 @@
+# Compiled binaries (top-level only)
+/test_conformal_ibc_full
+/test_manuscript_3stage
+/test_conformal_ibc
+/test_conformal_cuda
+/test_conformal_cpu
+/test_cuda_eigensolver
+/test_cuda_operator
+/test_cuda_curls
+/test_cuda_vector_ops
+/test_cuda_fields
+/test_curl
+/test_curl_curl
+/test_operator
+/test_rhodotron
+/test_rhodotron_gpu
+/test_pipe_model
+/test_convergence
+/test_convergence_full
+/test_ibc
+/test_ibc_pipe
+/bench_solver
+/bench_gpu_xcheck
+/bench_gpu_conformal_xcheck
+/bench_omp
+/bench_serial
+
+# Object files and build artifacts
+*.o
+*.obj
+*.a
+*.so
+build_omp/
+build_serial/
+build/
+obj/
+
+# Compiler scratch and state
+.omp_state
+
+# Visual Studio / IDE
+.vs/
+.vscode/
+*.sln
+*.vcxproj
+*.vcxproj.user
+*.vcxproj.filters
+*.lnk
+*.user
+
+# Run outputs at top level (regenerable; _golden/ is preserved by leading slash)
+/*.csv
+/*.bin
+/*.log
+/results_summary.txt
+/paper_perf.txt
+
+# OS junk
+.DS_Store
+Thumbs.db

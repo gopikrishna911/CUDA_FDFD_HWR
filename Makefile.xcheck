@@ -1,0 +1,57 @@
+# ============================================================
+# Makefile.xcheck — GPU cross-check harness
+#
+# Builds bench_gpu_xcheck against the project's GPU operator +
+# eigensolver, using the SAME compilers/flags as the main project
+# (g++ for plain C++, nvcc for CUDA).
+#
+#   make -f Makefile.xcheck
+#   ./bench_gpu_xcheck --sizes=16,24,32,48 --mode=both --csv=gpu_xcheck.csv
+#
+# Then compare against the CPU run (same flags):
+#   ./bench_serial      --sizes=16,24,32,48 --mode=both --csv=cpu_serial.csv
+# ============================================================
+
+CXX        = g++
+CXXFLAGS   = -O2 -std=c++11
+NVCC       = nvcc
+NVCCFLAGS  = -O3 -arch=sm_86 --use_fast_math
+CUDA_PATH ?= /usr/local/cuda
+CUDA_INC   = -I$(CUDA_PATH)/include
+CUDA_LIB   = -L$(CUDA_PATH)/lib64
+LDLIBS     = -lcudart -lm
+
+# Plain C++ sources (g++, exactly as the main Makefile builds them)
+CPU_OBJS   = curl_E.xck.o curl_H.xck.o curlcurl_operator.xck.o
+# CUDA sources the matvec + eigensolver need (nvcc)
+CU_OBJS    = cuda_fields.xck.o cuda_vector_ops.xck.o cuda_curls.xck.o \
+             cuda_operator.xck.o cuda_eigensolver.xck.o
+
+bench_gpu_xcheck: bench_gpu_xcheck.xck.o $(CPU_OBJS) $(CU_OBJS)
+	$(NVCC) $(NVCCFLAGS) $^ -o $@ $(CUDA_LIB) $(LDLIBS)
+
+bench_gpu_xcheck.xck.o: bench_gpu_xcheck.cu
+	$(NVCC) $(NVCCFLAGS) $(CUDA_INC) -c $< -o $@
+
+curl_E.xck.o: curl_E.cpp curl_E.h
+	$(CXX) $(CXXFLAGS) -c curl_E.cpp -o $@
+curl_H.xck.o: curl_H.cpp curl_H.h curl_E.h
+	$(CXX) $(CXXFLAGS) -c curl_H.cpp -o $@
+curlcurl_operator.xck.o: curlcurl_operator.cpp curlcurl_operator.h curl_E.h curl_H.h
+	$(CXX) $(CXXFLAGS) -c curlcurl_operator.cpp -o $@
+
+cuda_fields.xck.o: cuda_fields.cu cuda_fields.h
+	$(NVCC) $(NVCCFLAGS) $(CUDA_INC) -c cuda_fields.cu -o $@
+cuda_vector_ops.xck.o: cuda_vector_ops.cu cuda_vector_ops.h
+	$(NVCC) $(NVCCFLAGS) $(CUDA_INC) -c cuda_vector_ops.cu -o $@
+cuda_curls.xck.o: cuda_curls.cu cuda_curls.h
+	$(NVCC) $(NVCCFLAGS) $(CUDA_INC) -c cuda_curls.cu -o $@
+cuda_operator.xck.o: cuda_operator.cu cuda_operator.h
+	$(NVCC) $(NVCCFLAGS) $(CUDA_INC) -c cuda_operator.cu -o $@
+cuda_eigensolver.xck.o: cuda_eigensolver.cu cuda_eigensolver.h
+	$(NVCC) $(NVCCFLAGS) $(CUDA_INC) -c cuda_eigensolver.cu -o $@
+
+clean:
+	rm -f *.xck.o bench_gpu_xcheck gpu_xcheck.csv
+
+.PHONY: clean
