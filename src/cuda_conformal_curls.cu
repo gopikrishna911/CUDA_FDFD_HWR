@@ -1,7 +1,7 @@
 /*=============================================================================
  * cuda_conformal_curls_cu.cpp
  *
- * Dey-Mittra conformal curl kernels for the rhodotron FDFD eigensolver.
+ * Dey-Mittra conformal curl kernels for the HWR FDFD eigensolver.
  *
  * Each kernel uses the integral form of Faraday's / Ampere's law:
  *

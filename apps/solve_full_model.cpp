@@ -1,13 +1,13 @@
 ﻿/*=============================================================================
  * test_conformal_ibc_full.cpp
  *
- * Full rhodotron model: PEC eigensolver + Conformal IBC iterative.
+ * Full HWR model: PEC eigensolver + Conformal IBC iterative.
  * All results (frequency, Q, R/Q) saved to a summary text file.
  * Field data exported to CSV for plotting.
  *
  * Geometry:
  *   - Coaxial HWR: a=0.3333m, b=1.0m, L=1.395m
- *   - 20 radial beam pipes at z=L/2 (10-pass Rhodotron)
+ *   - 20 radial beam pipes at z=L/2 (10-pass HWR)
  *   - 1 endcap pipe at z=0 (vacuum port)
  *   - 1 endcap pipe at z=L (RF coupler)
  *   - Grid extended in z for endcap pipes
@@ -177,7 +177,7 @@ static void write_summary_file(
     if (!fp) { printf("  ERROR: cannot open %s\n", filename); return; }
 
     fprintf(fp, "================================================================\n");
-    fprintf(fp, "  RHODOTRON FDFD EIGENSOLVER — CONFORMAL IBC RESULTS\n");
+    fprintf(fp, "  CUDA FDFD HWR EIGENSOLVER — CONFORMAL IBC RESULTS\n");
     fprintf(fp, "================================================================\n\n");
 
     /* Timestamp */
@@ -360,7 +360,7 @@ static void write_summary_file(
 int main(void) {
     printf("\n");
     printf("================================================================\n");
-    printf("  RHODOTRON FDFD — PEC + CONFORMAL IBC FULL SOLVE\n");
+    printf("  CUDA FDFD HWR — PEC + CONFORMAL IBC FULL SOLVE\n");
     printf("================================================================\n\n");
 
     cuda_print_device_info();

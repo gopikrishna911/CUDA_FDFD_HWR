@@ -7,7 +7,7 @@
 typedef struct CurlCurlOperator CurlCurlOperator;
 
 /*=============================================================================
- * Port Configuration for Rhodotron Cavity
+ * Port Configuration for HWR Cavity
  *============================================================================*/
 
 typedef enum {

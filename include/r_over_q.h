@@ -8,9 +8,9 @@ extern "C" {
 #endif
 
     /*=============================================================================
-     * R/Q (Shunt Impedance per unit Q) for Rhodotron Cavity
+     * R/Q (Shunt Impedance per unit Q) for HWR Cavity
      *
-     * In a Rhodotron the beam travels RADIALLY, not axially. The accelerating
+     * In this HWR the beam travels RADIALLY, not axially. The accelerating
      * voltage per gap crossing is:
      *
      *     V_gap = integral_a^b  E_r(r, phi_beam, z_mid) dr
@@ -138,7 +138,7 @@ extern "C" {
     );
 
     /*=============================================================================
-     * Main R/Q computation for multi-pass Rhodotron
+     * Main R/Q computation for multi-pass HWR
      *
      * Computes V_gap for every beam crossing (2 per pass) and assembles
      * R/Q in both linac and circuit conventions.
@@ -152,7 +152,7 @@ extern "C" {
      *   z0_offset   - Grid z-offset for extended grids
      *   num_passes  - Number of beam passes (entry/exit pair each)
      *
-     * The beam geometry follows the standard Rhodotron layout:
+     * The beam geometry follows the standard multi-pass radial-port layout:
      *   Pass i: entry at phi = i * pi/num_passes
      *           exit  at phi = entry + pi
      * All crossings at z = L_cavity / 2 (midplane).

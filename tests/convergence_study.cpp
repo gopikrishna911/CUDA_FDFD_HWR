@@ -1,7 +1,7 @@
 ﻿/*=============================================================================
  * test_convergence_full.cpp
  *
- * Grid convergence study for the FULL Rhodotron model (all pipes).
+ * Grid convergence study for the FULL HWR model (all pipes).
  *
  * Runs the complete cavity (20 radial pipes + 2 endcap pipes) at multiple
  * grid resolutions. Reports f, Q_0, and R/Q at each level, convergence

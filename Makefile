@@ -1,5 +1,5 @@
 # ============================================================
-# Rhodotron FDFD eigensolver — CUDA-accelerated build
+# CUDA_FDFD_HWR — CUDA-accelerated build
 # ============================================================
 # Binaries built (in this directory):
 #   solve_full_model     production solve (PEC + conformal IBC)

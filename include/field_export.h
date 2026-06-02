@@ -15,7 +15,7 @@ extern "C" {
      * density from the eigensolver result. All coordinates are physical
      * (meters, degrees), not grid indices.
      *
-     * Output files (prefix = e.g. "rhodotron"):
+     * Output files (prefix = e.g. "ibc"):
      *
      *   2D color maps:
      *     {prefix}_Er_rz.csv          Er(r,z) at phi=0

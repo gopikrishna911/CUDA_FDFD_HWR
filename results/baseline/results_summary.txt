@@ -1,5 +1,5 @@
 ================================================================
-  RHODOTRON FDFD EIGENSOLVER — CONFORMAL IBC RESULTS
+  CUDA FDFD HWR EIGENSOLVER — CONFORMAL IBC RESULTS
 ================================================================
 
   Date: Tue Jun  2 21:23:50 2026

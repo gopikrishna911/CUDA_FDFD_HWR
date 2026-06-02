@@ -1,7 +1,7 @@
 /*=============================================================================
  * conformal_geometry.c
  *
- * Dey-Mittra conformal subcell geometry engine for the rhodotron FDFD
+ * Dey-Mittra conformal subcell geometry engine for the HWR FDFD
  * eigensolver. Computes exact vacuum edge fractions, face areas, and
  * IBC wall weights where curved pipe walls intersect Yee grid cells.
  *
