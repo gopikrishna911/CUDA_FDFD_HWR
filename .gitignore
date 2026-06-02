@@ -1,29 +1,7 @@
 # Compiled binaries (top-level only)
-/test_conformal_ibc_full
-/test_manuscript_3stage
-/test_conformal_ibc
-/test_conformal_cuda
-/test_conformal_cpu
-/test_cuda_eigensolver
-/test_cuda_operator
-/test_cuda_curls
-/test_cuda_vector_ops
-/test_cuda_fields
-/test_curl
-/test_curl_curl
-/test_operator
-/test_rhodotron
-/test_rhodotron_gpu
-/test_pipe_model
-/test_convergence
-/test_convergence_full
-/test_ibc
-/test_ibc_pipe
-/bench_solver
-/bench_gpu_xcheck
-/bench_gpu_conformal_xcheck
-/bench_omp
-/bench_serial
+/solve_full_model
+/manuscript_3stage
+/convergence_study
 
 # Object files and build artifacts
 *.o
