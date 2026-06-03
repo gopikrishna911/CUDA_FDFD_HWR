@@ -1,25 +1,35 @@
 ﻿/*=============================================================================
- * test_convergence_full.cpp
+ * convergence_study.cpp
  *
- * Grid convergence study for the FULL Rhodotron model (all pipes).
+ * Grid convergence study for the FULL HWR model — TWO methods reported at
+ * every grid level so the paper's conformal-IBC contribution is
+ * characterized, not just the bulk discretization:
  *
- * Runs the complete cavity (20 radial pipes + 2 endcap pipes) at multiple
- * grid resolutions. Reports f, Q_0, and R/Q at each level, convergence
- * order, and Richardson extrapolation.
+ *   Phase A — PEC (staircased pipes):
+ *       Real eigenproblem, RQI + MINRES inner solve.
+ *       Reports f_PEC and Q_PEC_surf (surface integral with copper R_s).
  *
- * The reference comparison is the finest-grid FDFD result, since there is
- * no closed-form analytical solution for the perturbed cavity. The
- * analytical (unperturbed) values are also shown for context.
+ *   Phase B — Conformal IBC (Dey-Mittra + grid-plane endplate IBC):
+ *       Complex eigenproblem with finite Z_s = R_s(1+j); complex RQI
+ *       with GMRES inner solve, seeded by the converged PEC eigenvector.
+ *       Reports f_IBC and Q_IBC = -Re(k^2)/Im(k^2) directly from the
+ *       eigenvalue.  This is the paper's headline method.
  *
- * Grid levels defined by target dr. Aspect ratios:
- *     r*dphi ≈ 1.5 * dr   (at r = b)
- *     dz     ≈ 2.0 * dr
+ * Richardson extrapolation is applied to the two finest IBC results
+ * since that is where the paper's claimed convergence behaviour lives.
  *
- * Levels exceeding GPU memory are automatically skipped.
+ * The full cavity (20 radial pipes + 2 endcap pipes + inner ports) is
+ * used at every level.  Levels exceeding GPU memory are skipped.
+ *
+ * Grid sizing per level (target dr):
+ *     r*dphi ~ 1.5 * dr   (at r = b)
+ *     dz     ~ 2.0 * dr
  *============================================================================*/
 
 #include "cuda_pipe_model.h"
 #include "cuda_eigensolver.h"
+#include "cuda_conformal_pipe.h"
+#include "conformal_geometry.h"
 #include "pipe_model.h"
 #include "curlcurl_operator.h"
 #include "q_factor.h"
@@ -31,6 +41,8 @@
 #include <cuda_runtime.h>
 #include "device_launch_parameters.h"
 #include <time.h>
+
+#define SIGMA_CU    5.8e7   /* copper conductivity (S/m) */
 
  /*=============================================================================
   * Eigensolver (RQI + MINRES, same as other test files)
@@ -184,15 +196,27 @@ typedef struct {
 
     /* Execution */
     int ran;
-    int converged;
-    double wall_sec;
+    double wall_pec_sec;
+    double wall_ibc_sec;
+    double wall_total_sec;
 
-    /* Results */
-    double k_squared;
-    double frequency_Hz;
-    double Q_0;
-    double G_factor;
-    double R_over_Q_linac;
+    /* Phase A — PEC results (real eigenvalue, surface-integral Q) */
+    int      pec_converged;
+    double   pec_k_squared;
+    double   pec_frequency_Hz;
+    double   pec_Q_surf;        /* Q from surface integral with copper R_s */
+    double   pec_G_factor;
+    double   pec_R_over_Q;
+
+    /* Phase B — Conformal IBC results (complex eigenvalue, Q from -Re/Im) */
+    int      ibc_converged;
+    double   ibc_k2_re;
+    double   ibc_k2_im;
+    double   ibc_frequency_Hz;
+    double   ibc_Q_eig;         /* Q from eigenvalue, paper's number */
+    int      ibc_iterations;
+    double   ibc_residual;
+    double   ibc_R_over_Q;
 } ConvLevel;
 
 
@@ -277,7 +301,7 @@ int main() {
     /*=========================================================================
      * Define convergence levels by target dr
      *========================================================================*/
-    double dr_targets[] = { 16.0, 10.0, 8.0, 5.5 };
+    double dr_targets[] = { 16.0, 10.0, 8.0, 5.5, 4.1 };
     int n_levels = sizeof(dr_targets) / sizeof(dr_targets[0]);
 
     double ratio_rdphi_dr = 1.5;
@@ -372,7 +396,7 @@ int main() {
         printf("  === Level %d: dr=%.1f mm, dphi=%.2f°, dz=%.1f mm, %.1fM DOFs ===\n",
             lvl + 1, Lv->dr_target_mm, Lv->dphi_deg, Lv->dz_mm, Lv->n_dofs / 1e6);
 
-        clock_t t_start = clock();
+        clock_t t_level_start = clock();
 
         /* Grid: extended in r and z */
         GridParams grid;
@@ -436,17 +460,26 @@ int main() {
         MaterialMask mask;
         material_mask_build_full(&mask, &pipes, &endcap_pipes, &grid, L, z0_offset);
 
-        /* GPU operator with endplate pipe holes */
-        printf("    [setup] initializing GPU pipe operator (n=%d DOFs)...\n", n); fflush(stdout);
+        /* Conformal data (radial pipes) + IBC unmask of surface cells.
+         * Built up-front so both Phase A and Phase B see the same geometry,
+         * and so Phase B can re-use the same ConformalData. */
+        printf("    [setup] building conformal data + IBC unmask...\n"); fflush(stdout);
+        ConformalData cd;
+        conformal_data_build(&cd, &pipes, &grid, b, z0_offset);
+        {
+            MaterialMask ibc_mask;
+            material_mask_build_ibc(&ibc_mask, &mask, &grid);
+            conformal_data_apply_ibc_unmask(&cd, &mask, &ibc_mask, &grid);
+            material_mask_free(&ibc_mask);
+        }
+
+        /* GPU PEC operator with endplate pipe holes (Phase A seed) */
+        printf("    [setup] initializing GPU PEC operator (n=%d DOFs)...\n", n); fflush(stdout);
         GPU_PipeOperator gpu_op;
         gpu_pipe_operator_init(&gpu_op, &cpu_op, &mask);
-
-        printf("    [setup] setting up endplate pipe-hole masks...\n"); fflush(stdout);
         gpu_pipe_operator_set_endplates(&gpu_op,
             k_endplate_z0, k_endplate_zL,
             &endcap_pipes, &grid, z0_offset);
-
-        printf("    [setup] done, entering solver.\n"); fflush(stdout);
 
         /* TEM initial guess (shifted z coordinate) */
         double* h_x = (double*)calloc(n, sizeof(double));
@@ -468,17 +501,21 @@ int main() {
         gpu_vector_alloc(&d_x, n);
         gpu_vector_to_device(d_x, h_x, n);
 
-        /* Solve */
-        double k2 = 0.0;
+        /*-----------------------------------------------------------------
+         * Phase A : PEC eigensolve (real, RQI + MINRES)
+         *-----------------------------------------------------------------*/
+        printf("    [phase A] PEC eigensolve...\n"); fflush(stdout);
+        clock_t t_pec0 = clock();
+        double k2_pec = 0.0;
         int minres_max = (n < 20000000) ? 1000 : 3000;
         run_eigensolver(&gpu_op, &cpu_op, &grid, d_x,
-            20, minres_max, 1e-4, &k2);
+            20, minres_max, 1e-4, &k2_pec);
+        Lv->wall_pec_sec = (double)(clock() - t_pec0) / CLOCKS_PER_SEC;
 
-        /* Retrieve eigenvector */
+        /* Retrieve PEC eigenvector for Q_surf, R/Q, and as IBC seed */
         gpu_vector_to_host(h_x, d_x, n);
 
-        /* Q factor (extended, with endplate k-indices) */
-        /* Build outer aperture exclusion list */
+        /* Surface-integral Q (extended, with endplate k-indices) */
         PortConfig all_apertures;
         port_config_init(&all_apertures);
         for (int i = 0; i < inner_ports.num_ports; i++) {
@@ -522,109 +559,174 @@ int main() {
             all_apertures.ports[all_apertures.num_ports++] = port;
         }
 
-        QFactorResult qf = compute_q_factor_extended(
-            &cpu_op, h_x, k2, Q_SIGMA_CU, b, &all_apertures,
+        QFactorResult qf_pec = compute_q_factor_extended(
+            &cpu_op, h_x, k2_pec, Q_SIGMA_CU, b, &all_apertures,
             k_endplate_z0, k_endplate_zL);
+        RoverQResult roq_pec = compute_r_over_q(
+            &cpu_op, h_x, k2_pec, b, L, z0_offset, num_passes);
 
-        /* R/Q */
-        RoverQResult roq = compute_r_over_q(
-            &cpu_op, h_x, k2, b, L, z0_offset, num_passes);
+        Lv->pec_converged = 1;
+        Lv->pec_k_squared = k2_pec;
+        Lv->pec_frequency_Hz = sqrt(fabs(k2_pec)) * c0 / (2.0 * M_PI);
+        Lv->pec_Q_surf = qf_pec.Q_0;
+        Lv->pec_G_factor = qf_pec.G_factor;
+        Lv->pec_R_over_Q = roq_pec.R_over_Q_crossing_linac;
 
-        clock_t t_end = clock();
-        Lv->wall_sec = (double)(t_end - t_start) / CLOCKS_PER_SEC;
+        printf("    [phase A] f_PEC=%.6f MHz, Q_surf=%.0f, R/Q=%.4f Ohm  (%.1f s)\n",
+            Lv->pec_frequency_Hz / 1e6, Lv->pec_Q_surf, Lv->pec_R_over_Q,
+            Lv->wall_pec_sec);
 
-        /* Store results */
+        /*-----------------------------------------------------------------
+         * Phase B : Conformal IBC eigensolve (complex, RQI + GMRES,
+         *           seeded by PEC eigenvector)
+         *-----------------------------------------------------------------*/
+        printf("    [phase B] initializing conformal IBC operator...\n"); fflush(stdout);
+        GPU_ConformalPipeOperator gpu_cfm;
+        gpu_conformal_pipe_operator_init(&gpu_cfm, &cpu_op, &mask, &cd,
+            k_endplate_z0, k_endplate_zL, &endcap_pipes, &grid, z0_offset);
+
+        /* Complex seed: [PEC eigenvector | zeros] */
+        int n2 = 2 * n;
+        double* h_x_cx = (double*)calloc(n2, sizeof(double));
+        memcpy(h_x_cx, h_x, n * sizeof(double));
+
+        double* d_x_cx;
+        gpu_vector_alloc(&d_x_cx, n2);
+        gpu_vector_to_device(d_x_cx, h_x_cx, n2);
+
+        printf("    [phase B] complex RQI + GMRES(50), seeded from PEC...\n"); fflush(stdout);
+        clock_t t_ibc0 = clock();
+        GPU_ComplexEigenResult ibc_res = gpu_rqi_complex_conformal_pipe(
+            &gpu_cfm, d_x_cx, k2_pec, SIGMA_CU, 30, 1e-6, 50);
+        Lv->wall_ibc_sec = (double)(clock() - t_ibc0) / CLOCKS_PER_SEC;
+
+        /* Pull complex eigenvector back; the real part is what R/Q uses */
+        gpu_vector_to_host(h_x_cx, d_x_cx, n2);
+        double* h_x_ibc_re = h_x_cx;   /* first n doubles */
+
+        RoverQResult roq_ibc = compute_r_over_q(
+            &cpu_op, h_x_ibc_re, ibc_res.k2_re, b, L, z0_offset, num_passes);
+
+        Lv->ibc_converged = ibc_res.converged;
+        Lv->ibc_k2_re = ibc_res.k2_re;
+        Lv->ibc_k2_im = ibc_res.k2_im;
+        Lv->ibc_frequency_Hz = ibc_res.frequency_Hz;
+        Lv->ibc_Q_eig = ibc_res.Q_factor;
+        Lv->ibc_iterations = ibc_res.iterations;
+        Lv->ibc_residual = ibc_res.residual;
+        Lv->ibc_R_over_Q = roq_ibc.R_over_Q_crossing_linac;
+
+        printf("    [phase B] f_IBC=%.6f MHz, Q_IBC=%.0f, R/Q=%.4f Ohm  "
+            "(iters=%d, res=%.2e, %.1f s)%s\n",
+            Lv->ibc_frequency_Hz / 1e6, Lv->ibc_Q_eig, Lv->ibc_R_over_Q,
+            Lv->ibc_iterations, Lv->ibc_residual, Lv->wall_ibc_sec,
+            Lv->ibc_converged ? "" : "  [NOT CONVERGED]");
+
+        clock_t t_level_end = clock();
+        Lv->wall_total_sec = (double)(t_level_end - t_level_start) / CLOCKS_PER_SEC;
         Lv->ran = 1;
-        Lv->converged = 1;
-        Lv->k_squared = k2;
-        Lv->frequency_Hz = sqrt(fabs(k2)) * c0 / (2.0 * M_PI);
-        Lv->Q_0 = qf.Q_0;
-        Lv->G_factor = qf.G_factor;
-        Lv->R_over_Q_linac = roq.R_over_Q_crossing_linac;
-
-        printf("    f = %.6f MHz,  Q0 = %.0f,  R/Q = %.4f Ohm,  %.1f s\n\n",
-            Lv->frequency_Hz / 1e6, Lv->Q_0, Lv->R_over_Q_linac, Lv->wall_sec);
+        printf("    level total: %.1f s\n\n", Lv->wall_total_sec);
 
         /* Cleanup this level */
+        gpu_vector_free(d_x_cx);
+        free(h_x_cx);
+        gpu_conformal_pipe_operator_free(&gpu_cfm);
         port_config_free(&all_apertures);
-        r_over_q_free(&roq);
+        r_over_q_free(&roq_pec);
+        r_over_q_free(&roq_ibc);
         free(h_x);
         gpu_vector_free(d_x);
         gpu_pipe_operator_free(&gpu_op);
+        conformal_data_free(&cd);
         material_mask_free(&mask);
         port_config_free(&inner_ports);
         curlcurl_op_free(&cpu_op);
     }
 
     /*=========================================================================
-     * Convergence summary table
+     * Convergence summary tables
      *========================================================================*/
-     /* Use finest-grid result as reference */
+     /* Use finest converged level as the reference for both methods */
     int i_finest = -1;
     for (int i = n_levels - 1; i >= 0; i--) {
         if (levels[i].ran) { i_finest = i; break; }
     }
 
-    double f_ref = (i_finest >= 0) ? levels[i_finest].frequency_Hz : 0;
-    double Q_ref = (i_finest >= 0) ? levels[i_finest].Q_0 : 0;
-    double RoQ_ref = (i_finest >= 0) ? levels[i_finest].R_over_Q_linac : 0;
+    if (i_finest < 0) {
+        printf("\n  WARNING: no levels ran successfully.\n");
+        free(levels);
+        pipe_config_free(&pipes);
+        endcap_pipe_config_free(&endcap_pipes);
+        return 1;
+    }
 
+    ConvLevel* Lref = &levels[i_finest];
+    double f_pec_ref = Lref->pec_frequency_Hz;
+    double Q_pec_ref = Lref->pec_Q_surf;
+    double f_ibc_ref = Lref->ibc_frequency_Hz;
+    double Q_ibc_ref = Lref->ibc_Q_eig;
+    double RoQ_ibc_ref = Lref->ibc_R_over_Q;
+
+    /* ----- Table 1: PEC results ----- */
     printf("\n");
     printf("  ┌──────────────────────────────────────────────────────────────────────────────────┐\n");
-    printf("  │                    FULL MODEL CONVERGENCE RESULTS                                │\n");
-    printf("  │  Finest grid (lvl %d):  f=%.4f MHz, Q0=%.0f, R/Q=%.4f Ohm                  │\n",
-        i_finest + 1, f_ref / 1e6, Q_ref, RoQ_ref);
-    printf("  │  Analytical (no pipes): f=%.4f MHz, Q0=%.0f, R/Q=%.4f Ohm                  │\n",
-        qf_analytical.frequency_Hz / 1e6, qf_analytical.Q_0,
-        roq_analytical.R_over_Q_crossing_linac);
+    printf("  │              PHASE A — PEC CONVERGENCE (staircased pipes)                        │\n");
+    printf("  │  Reference (lvl %d):  f=%.4f MHz, Q_surf=%.0f                                  │\n",
+        i_finest + 1, f_pec_ref / 1e6, Q_pec_ref);
+    printf("  │  Analytical (no pipes): f=%.4f MHz, Q_0=%.0f                                  │\n",
+        qf_analytical.frequency_Hz / 1e6, qf_analytical.Q_0);
     printf("  ├──────────────────────────────────────────────────────────────────────────────────┤\n");
-    printf("  │ Lvl  dr(mm)  dz(mm)     DOFs   f(MHz)      Δf(Hz)   Q_0    R/Q(Ω)   Time     │\n");
-    printf("  │                                            vs finest                            │\n");
-    printf("  │ ───  ──────  ──────  ────────  ──────────  ───────  ─────  ───────  ──────     │\n");
+    printf("  │ Lvl  dr(mm)  dz(mm)     DOFs   f(MHz)     Δf(Hz)    Q_surf  R/Q(Ω)   T(s)      │\n");
+    printf("  │ ───  ──────  ──────  ────────  ─────────  ────────  ──────  ───────  ──────    │\n");
 
     for (int lvl = 0; lvl < n_levels; lvl++) {
         ConvLevel* Lv = &levels[lvl];
         if (!Lv->ran) {
-            printf("  │ %2d   %5.1f   %5.1f   %6.1fM  %45s │\n",
+            printf("  │ %2d   %5.1f   %5.1f   %6.1fM  %58s│\n",
                 lvl + 1, Lv->dr_target_mm, Lv->dz_mm, Lv->n_dofs / 1e6,
                 "— SKIPPED —");
             continue;
         }
-
-        double df_vs_finest = Lv->frequency_Hz - f_ref;
-        printf("  │ %2d   %5.1f   %5.1f   %6.1fM  %10.4f  %+8.1f  %5.0f  %7.4f  %6.1fs%s │\n",
-            lvl + 1, Lv->dr_target_mm, Lv->dz_mm,
-            Lv->n_dofs / 1e6,
-            Lv->frequency_Hz / 1e6,
-            df_vs_finest,
-            Lv->Q_0,
-            Lv->R_over_Q_linac,
-            Lv->wall_sec,
-            (lvl == i_finest) ? " *" : "  ");
+        double df = Lv->pec_frequency_Hz - f_pec_ref;
+        printf("  │ %2d   %5.1f   %5.1f   %6.1fM  %9.4f  %+8.1f  %6.0f  %7.4f  %6.1f%s   │\n",
+            lvl + 1, Lv->dr_target_mm, Lv->dz_mm, Lv->n_dofs / 1e6,
+            Lv->pec_frequency_Hz / 1e6, df, Lv->pec_Q_surf,
+            Lv->pec_R_over_Q, Lv->wall_pec_sec,
+            (lvl == i_finest) ? "*" : " ");
     }
     printf("  └──────────────────────────────────────────────────────────────────────────────────┘\n");
 
-    /*=========================================================================
-     * Convergence rates (consecutive pairs)
-     *========================================================================*/
-    if (i_finest >= 0) {
-        printf("\n  Convergence toward finest grid:\n");
-        printf("  %5s  %8s  %12s  %10s  %10s\n",
-            "Level", "dr(mm)", "Δf(Hz)", "ΔQ", "ΔR/Q(Ω)");
-        printf("  ───── ──────── ──────────── ────────── ──────────\n");
+    /* ----- Table 2: Conformal IBC results (the paper's headline) ----- */
+    printf("\n");
+    printf("  ┌──────────────────────────────────────────────────────────────────────────────────┐\n");
+    printf("  │              PHASE B — CONFORMAL IBC CONVERGENCE (paper's method)               │\n");
+    printf("  │  Reference (lvl %d):  f=%.4f MHz, Q_eig=%.0f, R/Q=%.4f Ω                     │\n",
+        i_finest + 1, f_ibc_ref / 1e6, Q_ibc_ref, RoQ_ibc_ref);
+    printf("  ├──────────────────────────────────────────────────────────────────────────────────┤\n");
+    printf("  │ Lvl  dr(mm)  dz(mm)     DOFs   f(MHz)     Δf(Hz)    Q_eig   R/Q(Ω)   T(s)      │\n");
+    printf("  │ ───  ──────  ──────  ────────  ─────────  ────────  ──────  ───────  ──────    │\n");
 
-        for (int i = 0; i < n_levels; i++) {
-            if (!levels[i].ran) continue;
-            printf("  %5d  %8.1f  %+12.1f  %+10.0f  %+10.4f\n",
-                i + 1, levels[i].dr_target_mm,
-                levels[i].frequency_Hz - f_ref,
-                levels[i].Q_0 - Q_ref,
-                levels[i].R_over_Q_linac - RoQ_ref);
+    for (int lvl = 0; lvl < n_levels; lvl++) {
+        ConvLevel* Lv = &levels[lvl];
+        if (!Lv->ran) {
+            printf("  │ %2d   %5.1f   %5.1f   %6.1fM  %58s│\n",
+                lvl + 1, Lv->dr_target_mm, Lv->dz_mm, Lv->n_dofs / 1e6,
+                "— SKIPPED —");
+            continue;
         }
+        double df = Lv->ibc_frequency_Hz - f_ibc_ref;
+        printf("  │ %2d   %5.1f   %5.1f   %6.1fM  %9.4f  %+8.1f  %6.0f  %7.4f  %6.1f%s%s │\n",
+            lvl + 1, Lv->dr_target_mm, Lv->dz_mm, Lv->n_dofs / 1e6,
+            Lv->ibc_frequency_Hz / 1e6, df, Lv->ibc_Q_eig,
+            Lv->ibc_R_over_Q, Lv->wall_ibc_sec,
+            (lvl == i_finest) ? "*" : " ",
+            Lv->ibc_converged ? "" : "!");
     }
+    printf("  └──────────────────────────────────────────────────────────────────────────────────┘\n");
+    printf("    * = finest grid (reference);  ! = IBC did not converge\n");
 
     /*=========================================================================
-     * Richardson extrapolation from two finest converged levels
+     * Richardson extrapolation (PEC and IBC, two finest converged levels)
      *========================================================================*/
     int i_fine = -1, i_coarse = -1;
     for (int i = n_levels - 1; i >= 0; i--) {
@@ -638,50 +740,75 @@ int main() {
         ConvLevel* Lf = &levels[i_fine];
         ConvLevel* Lc = &levels[i_coarse];
         double r = Lc->dr_target_mm / Lf->dr_target_mm;
-
-        printf("\n  Richardson extrapolation (levels %d & %d, h-ratio = %.2f):\n",
-            i_coarse + 1, i_fine + 1, r);
-
-        /* Assume p=2 (second-order FD) */
-        double p = 2.0;
+        double p = 2.0;        /* assumed second-order in the bulk */
         double rp = pow(r, p);
 
-        double f_rich = Lf->frequency_Hz
-            + (Lf->frequency_Hz - Lc->frequency_Hz) / (rp - 1.0);
-        double Q_rich = Lf->Q_0
-            + (Lf->Q_0 - Lc->Q_0) / (rp - 1.0);
-        double RoQ_rich = Lf->R_over_Q_linac
-            + (Lf->R_over_Q_linac - Lc->R_over_Q_linac) / (rp - 1.0);
+        printf("\n  Richardson extrapolation (levels %d & %d, h-ratio = %.2f, p = %.1f):\n",
+            i_coarse + 1, i_fine + 1, r, p);
 
-        printf("    Assuming p=2 (second-order convergence):\n");
-        printf("    ┌──────────────────────────────────────────────────────┐\n");
-        printf("    │  Quantity     Coarse (L%d)  Fine (L%d)   Richardson  │\n",
+        /* PEC */
+        double f_pec_rich = Lf->pec_frequency_Hz
+            + (Lf->pec_frequency_Hz - Lc->pec_frequency_Hz) / (rp - 1.0);
+        double Q_pec_rich = Lf->pec_Q_surf
+            + (Lf->pec_Q_surf - Lc->pec_Q_surf) / (rp - 1.0);
+        double RoQp_rich = Lf->pec_R_over_Q
+            + (Lf->pec_R_over_Q - Lc->pec_R_over_Q) / (rp - 1.0);
+
+        /* IBC (paper's numbers) */
+        double f_ibc_rich = Lf->ibc_frequency_Hz
+            + (Lf->ibc_frequency_Hz - Lc->ibc_frequency_Hz) / (rp - 1.0);
+        double Q_ibc_rich = Lf->ibc_Q_eig
+            + (Lf->ibc_Q_eig - Lc->ibc_Q_eig) / (rp - 1.0);
+        double RoQi_rich = Lf->ibc_R_over_Q
+            + (Lf->ibc_R_over_Q - Lc->ibc_R_over_Q) / (rp - 1.0);
+
+        printf("    ┌──────────────────────────────────────────────────────────────────────────┐\n");
+        printf("    │  Quantity            L%d (coarse)   L%d (fine)    Richardson (h→0)   │\n",
             i_coarse + 1, i_fine + 1);
-        printf("    │  ──────────  ───────────  ──────────  ──────────── │\n");
-        printf("    │  f (MHz)     %11.4f  %11.4f  %11.4f     │\n",
-            Lc->frequency_Hz / 1e6, Lf->frequency_Hz / 1e6, f_rich / 1e6);
-        printf("    │  Q_0         %11.0f  %11.0f  %11.0f     │\n",
-            Lc->Q_0, Lf->Q_0, Q_rich);
-        printf("    │  R/Q (Ω)     %11.4f  %11.4f  %11.4f     │\n",
-            Lc->R_over_Q_linac, Lf->R_over_Q_linac, RoQ_rich);
-        printf("    └──────────────────────────────────────────────────────┘\n");
+        printf("    │  ──────────────────  ───────────   ──────────   ────────────────       │\n");
+        printf("    │  PEC  f (MHz)        %11.6f   %11.6f   %11.6f         │\n",
+            Lc->pec_frequency_Hz / 1e6, Lf->pec_frequency_Hz / 1e6, f_pec_rich / 1e6);
+        printf("    │  PEC  Q_surf         %11.1f   %11.1f   %11.1f         │\n",
+            Lc->pec_Q_surf, Lf->pec_Q_surf, Q_pec_rich);
+        printf("    │  PEC  R/Q (Ω)        %11.4f   %11.4f   %11.4f         │\n",
+            Lc->pec_R_over_Q, Lf->pec_R_over_Q, RoQp_rich);
+        printf("    │  ──────────────────  ───────────   ──────────   ────────────────       │\n");
+        printf("    │  IBC  f (MHz)        %11.6f   %11.6f   %11.6f         │\n",
+            Lc->ibc_frequency_Hz / 1e6, Lf->ibc_frequency_Hz / 1e6, f_ibc_rich / 1e6);
+        printf("    │  IBC  Q_eig          %11.1f   %11.1f   %11.1f         │\n",
+            Lc->ibc_Q_eig, Lf->ibc_Q_eig, Q_ibc_rich);
+        printf("    │  IBC  R/Q (Ω)        %11.4f   %11.4f   %11.4f         │\n",
+            Lc->ibc_R_over_Q, Lf->ibc_R_over_Q, RoQi_rich);
+        printf("    └──────────────────────────────────────────────────────────────────────────┘\n");
+    }
+    else {
+        printf("\n  (Richardson extrapolation needs >=2 converged levels — skipped.)\n");
     }
 
     /*=========================================================================
-     * Export CSV
+     * Export CSV (one row per level, both methods)
      *========================================================================*/
     {
         FILE* fp = fopen("convergence_full_model.csv", "w");
         if (fp) {
-            fprintf(fp, "level,dr_mm,dphi_deg,dz_mm,n_dofs,"
-                "frequency_Hz,Q_0,R_over_Q_linac,wall_sec\n");
+            fprintf(fp,
+                "level,dr_mm,dphi_deg,dz_mm,n_dofs,"
+                "pec_f_Hz,pec_Q_surf,pec_R_over_Q,pec_wall_sec,"
+                "ibc_f_Hz,ibc_Q_eig,ibc_R_over_Q,ibc_iters,ibc_residual,ibc_wall_sec,"
+                "total_wall_sec\n");
             for (int i = 0; i < n_levels; i++) {
                 ConvLevel* Lv = &levels[i];
                 if (!Lv->ran) continue;
-                fprintf(fp, "%d,%.4f,%.6f,%.4f,%lld,"
-                    "%.6f,%.2f,%.6f,%.2f\n",
+                fprintf(fp,
+                    "%d,%.4f,%.6f,%.4f,%lld,"
+                    "%.6f,%.4f,%.6f,%.2f,"
+                    "%.6f,%.4f,%.6f,%d,%.6e,%.2f,"
+                    "%.2f\n",
                     i + 1, Lv->dr_mm, Lv->dphi_deg, Lv->dz_mm, Lv->n_dofs,
-                    Lv->frequency_Hz, Lv->Q_0, Lv->R_over_Q_linac, Lv->wall_sec);
+                    Lv->pec_frequency_Hz, Lv->pec_Q_surf, Lv->pec_R_over_Q, Lv->wall_pec_sec,
+                    Lv->ibc_frequency_Hz, Lv->ibc_Q_eig, Lv->ibc_R_over_Q,
+                    Lv->ibc_iterations, Lv->ibc_residual, Lv->wall_ibc_sec,
+                    Lv->wall_total_sec);
             }
             fclose(fp);
             printf("\n  Data written to convergence_full_model.csv\n");
