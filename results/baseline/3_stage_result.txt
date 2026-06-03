@@ -1,0 +1,461 @@
+﻿================================================================
+  MANUSCRIPT FINAL TABLE — THREE-STAGE CAVITY SOLVE
+================================================================
+
+============================================
+  CUDA Device: NVIDIA GeForce RTX 4060 Laptop GPU
+============================================
+  Compute capability : 8.9
+  Multiprocessors    : 24
+  Global memory      : 8.6 GB
+  Shared mem / block : 48.0 KB
+  Max threads / block: 1024
+  Warp size          : 32
+  Clock rate         : 1.9 GHz
+  Memory clock       : 8.0 GHz
+  Memory bus width   : 128 bits
+  L2 cache size      : 32768 KB
+  Max grid dims      : [2147483647, 65535, 65535]
+============================================
+
+  GPU Memory [startup]: 1144.5 MB used / 8585.2 MB total (7440.7 MB free)
+
+================================================================
+  STAGE 1: unperturbed coaxial cavity
+    radial_pipes=0  endcap_pipes=0  inner_ports=0
+================================================================
+  Extended grid (radial + axial pipes):
+    r ∈ [0.3333, 1.0000] m (cavity) + [1.0000, 1.0500] m (pipe)
+    z ∈ [-0.0664, 0.0000] m (z0-pipe) + [0.0000, 1.3950] m (cavity) + [1.3950, 1.4614] m (zL-pipe)
+    Nr = 88 (cavity: 81 + pipe: 7)
+    Nz = 92 (z0-pipe: 4 + cavity: 84 + zL-pipe: 4)
+    dr = 8.14 mm,  dz = 16.61 mm
+    z-offset: grid k=0 → z_phys = -0.0664 m
+    Cavity starts at k = 4
+    Cavity ends   at k = 88
+  Grid: Nr=88, Nphi=256, Nz=92  (DOFs ~ 6217728)
+
+  Material Mask Statistics:
+    Domain: r ∈ [0.3333, 1.0500] m
+    Er:   1784320 vacuum / 2095104 total (85.2%)
+    Ephi: 1784320 vacuum / 2118912 total (84.2%)
+    Ez:   1763328 vacuum / 2096128 total (84.1%)
+    Total: 5331968 vacuum, 978176 PEC (15.5% PEC)
+  IBC mask: flipped 41984 Er + 63744 Ephi + 21504 Ez = 127232 surface cells
+  IBC unmask: set edge_frac=1 at 0 Er + 21760 Ephi + 21504 Ez = 43264 surface cells
+  Face area fixup: 0 Hr + 0 Hphi + 0 Hz faces restored (cavity-side only)
+
+  Phase A: PEC pipe-operator RQI (seed for IBC)
+  Interior endplates: k_z0=4, k_zL=88 (full PEC)
+    PEC Pipe RQI: sigma0=5.071083
+      iter 0: k2=5.0710828618, MINRES=575
+      iter 1: k2=5.0710828618, MINRES=634
+    PEC converged.
+  Phase A done: k2 = 5.0710828618, f = 107.446232 MHz, time = 15.6 s
+
+  Phase B: Conformal IBC RQI (complex, seeded from PEC)
+  GPU Operator initialized in IBC (complex) mode
+  Working arrays: 6 E-field + 6 H-field arrays (re+im)
+  IBC mask: flipped 41984 Er + 63744 Ephi + 21504 Ez = 127232 surface cells
+  IBC boundary weights (on surface cells):
+    Er:   41984 boundary cells
+    Ephi: 63744 boundary cells
+    Ez:   21504 boundary cells
+    Total: 127232
+  GPU conformal data: 288.5 MB uploaded
+  Conformal pipe operator initialized (IBC mask + endplate grid-plane IBC).
+
+  Complex Rayleigh Quotient Iteration (IBC, GPU):
+  Iter   k2_re            k2_im         Q             Residual      GMRES   iter_s
+  -------------------------------------------------------------------------------------
+  0         5.0709777458  -1.05093e-04       48252.4   1.23391e-04     300    28.96s
+  1         5.0709777464  -1.05094e-04       48252.0   2.73722e-06    2000   193.01s
+  Converged!
+  f = 107.445118 MHz,  Q = 48252.0
+  Phase rotation: theta = -89.99 deg, max|Re| = 1.3501e+00, max|Im| = 9.8080e-06 (ratio 7.26e-06)
+  Phase B done: f = 107.445118 MHz, Q(eig) = 48252.0, converged, time = 222.2 s
+
+  Phase C: Q-surface, R/Q, voltage spread
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  Q Factor: STAGE 1: unperturbed coaxial cavity         │
+  ├──────────────────────────────────────────────────────────┤
+  │  Mode:                                                  │
+  │    k^2            = 5.07097775e+00  1/m^2            │
+  │    Frequency      = 107.445118      MHz              │
+  │    Wavelength     = 2.7902          m                │
+  │  Material (copper):                                     │
+  │    Conductivity   = 5.80e+07        S/m              │
+  │    R_s            = 2.7043e-03      Ohm              │
+  │    Skin depth     = 6.38            um               │
+  │  Power dissipation breakdown:                           │
+  │    P_inner  (r=a) = 2.596762e-08    ( 41.9%)          │
+  │    P_outer  (r=b) = 8.641883e-09    ( 13.9%)          │
+  │    P_z0    (z=0)  = 1.367326e-08    ( 22.1%)          │
+  │    P_zL    (z=L)  = 1.367326e-08    ( 22.1%)          │
+  │    P_total        = 6.195602e-08                      │
+  │  Result:                                                │
+  │    Q_0            = 48239                             │
+  │    G factor       = 130.46          Ohm              │
+  └──────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  R/Q: STAGE 1: unperturbed coaxial cavity             │
+  ├──────────────────────────────────────────────────────────┤
+  │  Mode:                                                  │
+  │    Frequency      = 107.445118   MHz                  │
+  │    omega          = 6.750976e+08   rad/s               │
+  │    W_stored       = 4.427094e-12   [arb]                │
+  ├──────────────────────────────────────────────────────────┤
+  │  Gap voltage (per crossing):                            │
+  │    V_avg          = 5.004367e-01   [arb]                │
+  │    V_min          = 5.004367e-01                        │
+  │    V_max          = 5.004367e-01                        │
+  │    Spread         = 0.0000%                          │
+  ├──────────────────────────────────────────────────────────┤
+  │  R/Q per single crossing:                               │
+  │    Linac   V^2/(wW) =    83.7940 Ohm                 │
+  │    Circuit V^2/(2wW)=    41.8970 Ohm                 │
+  │  R/Q per pass (2 crossings):                            │
+  │    Linac            =   335.1760 Ohm                 │
+  │    Circuit          =   167.5880 Ohm                 │
+  │  R/Q total (10 passes, 20 crossings):              │
+  │    V_total         = 1.000873e+01                        │
+  │    Linac           =   33517.60 Ohm                 │
+  │    Circuit         =   16758.80 Ohm                 │
+  ├──────────────────────────────────────────────────────────┤
+  │  Analytical (TEM HWR):                                  │
+  │    R/Q_linac       =    83.8774 Ohm  (per crossing)  │
+  │    R/Q_circuit     =    41.9387 Ohm  (per crossing)  │
+  └──────────────────────────────────────────────────────────┘
+
+  Per-pass breakdown:
+   Pass     phi_entry       V_entry        V_exit        V_pass    R/Q_pass
+  -----    ----------    ----------    ----------    ----------  ----------
+      1       0.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+      2      18.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+      3      36.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+      4      54.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+      5      72.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+      6      90.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+      7     108.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+      8     126.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+      9     144.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+     10     162.00 deg  5.004367e-01  5.004367e-01  1.000873e+00    335.1760
+
+================================================================
+  STAGE 2: cavity + radial pipes only
+    radial_pipes=1  endcap_pipes=0  inner_ports=0
+================================================================
+  Extended grid (radial + axial pipes):
+    r ∈ [0.3333, 1.0000] m (cavity) + [1.0000, 1.0500] m (pipe)
+    z ∈ [-0.0664, 0.0000] m (z0-pipe) + [0.0000, 1.3950] m (cavity) + [1.3950, 1.4614] m (zL-pipe)
+    Nr = 88 (cavity: 81 + pipe: 7)
+    Nz = 92 (z0-pipe: 4 + cavity: 84 + zL-pipe: 4)
+    dr = 8.14 mm,  dz = 16.61 mm
+    z-offset: grid k=0 → z_phys = -0.0664 m
+    Cavity starts at k = 4
+    Cavity ends   at k = 88
+  Grid: Nr=88, Nphi=256, Nz=92  (DOFs ~ 6217728)
+
+  Material Mask Statistics:
+    Domain: r ∈ [0.3333, 1.0500] m
+    Er:   1784432 vacuum / 2095104 total (85.2%)
+    Ephi: 1784440 vacuum / 2118912 total (84.2%)
+    Ez:   1763488 vacuum / 2096128 total (84.1%)
+    Total: 5332360 vacuum, 977784 PEC (15.5% PEC)
+    Pipe 0: φ=0.0000, z=0.6975, j_cen=0, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 1: φ=3.1416, z=0.6975, j_cen=128, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 2: φ=0.3142, z=0.6975, j_cen=12, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 3: φ=3.4558, z=0.6975, j_cen=140, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 4: φ=0.6283, z=0.6975, j_cen=25, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 5: φ=3.7699, z=0.6975, j_cen=153, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 6: φ=0.9425, z=0.6975, j_cen=38, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 7: φ=4.0841, z=0.6975, j_cen=166, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 8: φ=1.2566, z=0.6975, j_cen=51, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 9: φ=4.3982, z=0.6975, j_cen=179, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 10: φ=1.5708, z=0.6975, j_cen=64, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 11: φ=4.7124, z=0.6975, j_cen=192, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 12: φ=1.8850, z=0.6975, j_cen=76, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 13: φ=5.0265, z=0.6975, j_cen=204, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 14: φ=2.1991, z=0.6975, j_cen=89, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 15: φ=5.3407, z=0.6975, j_cen=217, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 16: φ=2.5133, z=0.6975, j_cen=102, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 17: φ=5.6549, z=0.6975, j_cen=230, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 18: φ=2.8274, z=0.6975, j_cen=115, k_cen=45, i=[79,88], dj=4, dk=4
+    Pipe 19: φ=5.9690, z=0.6975, j_cen=243, k_cen=45, i=[79,88], dj=4, dk=4
+  IBC mask: flipped 42416 Er + 63936 Ephi + 21744 Ez = 128096 surface cells
+  IBC unmask: set edge_frac=1 at 384 Er + 21952 Ephi + 21744 Ez = 44080 surface cells
+  Face area fixup: 16 Hr + 112 Hphi + 72 Hz faces restCUDA error at src/cuda_vector_ops.cu:84: invalid argument
+ored (cavity-side only)
+
+  Phase A: PEC pipe-operator RQI (seed for IBC)
+  Interior endplates: k_z0=4, k_zL=88 (full PEC)
+    PEC Pipe RQI: sigma0=5.071083
+      iter 0: k2=5.0710902900, MINRES=733
+      iter 1: k2=5.0710902900, MINRES=2175
+    PEC converged.
+  Phase A done: k2 = 5.0710902900, f = 107.446310 MHz, time = 35.5 s
+
+  Phase B: Conformal IBC RQI (complex, seeded from PEC)
+  GPU Operator initialized in IBC (complex) mode
+  Working arrays: 6 E-field + 6 H-field arrays (re+im)
+  IBC mask: flipped 42416 Er + 63936 Ephi + 21744 Ez = 128096 surface cells
+  IBC boundary weights (on surface cells):
+    Er:   42416 boundary cells
+    Ephi: 63936 boundary cells
+    Ez:   21744 boundary cells
+    Total: 128096
+  GPU conformal data: 288.5 MB uploaded
+  Conformal pipe operator initialized (IBC mask + endplate grid-plane IBC).
+
+  Complex Rayleigh Quotient Iteration (IBC, GPU):
+  Iter   k2_re            k2_im         Q             Residual      GMRES   iter_s
+  -------------------------------------------------------------------------------------
+  0         5.0711308943  -1.05257e-04       48178.5   2.28330e+00     300    28.88s
+  1         5.0709804733  -1.05091e-04       48253.0   8.91506e-02    2000   192.54s
+  2         5.0709778747  -1.05086e-04       48255.4   8.77506e-03    2000   192.04s
+  Converged!
+  f = 107.445119 MHz,  Q = 48255.4
+  Phase rotation: theta = -51.17 deg, max|Re| = 1.3501e+00, max|Im| = 1.3774e-04 (ratio 1.02e-04)
+  Phase B done: f = 107.445119 MHz, Q(eig) = 48255.4, converged, time = 413.7 s
+
+  Phase C: Q-surface, R/Q, voltage spread
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  Q Factor: STAGE 2: cavity + radial pipes only         │
+  ├──────────────────────────────────────────────────────────┤
+  │  Mode:                                                  │
+  │    k^2            = 5.07097787e+00  1/m^2            │
+  │    Frequency      = 107.445119      MHz              │
+  │    Wavelength     = 2.7902          m                │
+  │  Material (copper):                                     │
+  │    Conductivity   = 5.80e+07        S/m              │
+  │    R_s            = 2.7043e-03      Ohm              │
+  │    Skin depth     = 6.38            um               │
+  │  Power dissipation breakdown:                           │
+  │    P_inner  (r=a) = 2.596572e-08    ( 41.9%)          │
+  │    P_outer  (r=b) = 8.641118e-09    ( 13.9%)          │
+  │    P_z0    (z=0)  = 1.367230e-08    ( 22.1%)          │
+  │    P_zL    (z=L)  = 1.367230e-08    ( 22.1%)          │
+  │    P_total        = 6.195144e-08                      │
+  │  Result:                                                │
+  │    Q_0            = 48243                             │
+  │    G factor       = 130.46          Ohm              │
+  └──────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  R/Q: STAGE 2: cavity + radial pipes only             │
+  ├──────────────────────────────────────────────────────────┤
+  │  Mode:                                                  │
+  │    Frequency      = 107.445119   MHz                  │
+  │    omega          = 6.750976e+08   rad/s               │
+  │    W_stored       = 4.427094e-12   [arb]                │
+  ├──────────────────────────────────────────────────────────┤
+  │  Gap voltage (per crossing):                            │
+  │    V_avg          = 5.004361e-01   [arb]                │
+  │    V_min          = 5.004258e-01                        │
+  │    V_max          = 5.004389e-01                        │
+  │    Spread         = 0.0026%                          │
+  ├──────────────────────────────────────────────────────────┤
+  │  R/Q per single crossing:                               │
+  │    Linac   V^2/(wW) =    83.7938 Ohm                 │
+  │    Circuit V^2/(2wW)=    41.8969 Ohm                 │
+  │  R/Q per pass (2 crossings):                            │
+  │    Linac            =   335.1753 Ohm                 │
+  │    Circuit          =   167.5876 Ohm                 │
+  │  R/Q total (10 passes, 20 crossings):              │
+  │    V_total         = 1.000872e+01                        │
+  │    Linac           =   33517.53 Ohm                 │
+  │    Circuit         =   16758.76 Ohm                 │
+  ├──────────────────────────────────────────────────────────┤
+  │  Analytical (TEM HWR):                                  │
+  │    R/Q_linac       =    83.8774 Ohm  (per crossing)  │
+  │    R/Q_circuit     =    41.9387 Ohm  (per crossing)  │
+  └──────────────────────────────────────────────────────────┘
+
+  Per-pass breakdown:
+   Pass     phi_entry       V_entry        V_exit        V_pass    R/Q_pass
+  -----    ----------    ----------    ----------    ----------  ----------
+      1       0.00 deg  5.004258e-01  5.004258e-01  1.000852e+00    335.1614
+      2      18.00 deg  5.004386e-01  5.004386e-01  1.000877e+00    335.1785
+      3      36.00 deg  5.004389e-01  5.004389e-01  1.000878e+00    335.1790
+      4      54.00 deg  5.004389e-01  5.004389e-01  1.000878e+00    335.1790
+      5      72.00 deg  5.004385e-01  5.004385e-01  1.000877e+00    335.1785
+      6      90.00 deg  5.004258e-01  5.004258e-01  1.000852e+00    335.1614
+      7     108.00 deg  5.004386e-01  5.004386e-01  1.000877e+00    335.1785
+      8     126.00 deg  5.004389e-01  5.004389e-01  1.000878e+00    335.1790
+      9     144.00 deg  5.004389e-01  5.004389e-01  1.000878e+00    335.1790
+     10     162.00 deg  5.004385e-01  5.004385e-01  1.000877e+00    335.1785
+
+================================================================
+  STAGE 3: full production (radial+endcap+ports)
+    radial_pipes=1  endcap_pipes=1  inner_ports=1
+================================================================
+  Extended grid (radial + axial pipes):
+    r ∈ [0.3333, 1.0000] m (cavity) + [1.0000, 1.0500] m (pipe)
+    z ∈ [-0.2823, 0.0000] m (z0-pipe) + [0.0000, 1.3950] m (cavity) + [1.3950, 1.6607] m (zL-pipe)
+    Nr = 88 (cavity: 81 + pipe: 7)
+    Nz = 117 (z0-pipe: 17 + cavity: 84 + zL-pipe: 16)
+    dr = 8.14 mm,  dz = 16.61 mm
+    z-offset: grid k=0 → z_phys = -0.2823 m
+    Cavity starts at k = 17
+    Cavity ends   at k = 101
+  Grid: Nr=88, Nphi=256, Nz=117  (DOFs ~ 7907328)
+  Using snapped z0_offset=0.282321 m (requested 0.282321 m)
+
+  Material Mask Statistics:
+    Domain: r ∈ [0.3333, 1.0500] m
+    Er:   1789628 vacuum / 2658304 total (67.3%)
+    Ephi: 1789670 vacuum / 2688512 total (66.6%)
+    Ez:   1768888 vacuum / 2665728 total (66.4%)
+    Total: 5348186 vacuum, 2664358 PEC (33.3% PEC)
+    Pipe 0: φ=0.0000, z=0.6975, j_cen=0, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 1: φ=3.1416, z=0.6975, j_cen=128, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 2: φ=0.3142, z=0.6975, j_cen=12, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 3: φ=3.4558, z=0.6975, j_cen=140, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 4: φ=0.6283, z=0.6975, j_cen=25, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 5: φ=3.7699, z=0.6975, j_cen=153, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 6: φ=0.9425, z=0.6975, j_cen=38, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 7: φ=4.0841, z=0.6975, j_cen=166, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 8: φ=1.2566, z=0.6975, j_cen=51, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 9: φ=4.3982, z=0.6975, j_cen=179, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 10: φ=1.5708, z=0.6975, j_cen=64, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 11: φ=4.7124, z=0.6975, j_cen=192, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 12: φ=1.8850, z=0.6975, j_cen=76, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 13: φ=5.0265, z=0.6975, j_cen=204, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 14: φ=2.1991, z=0.6975, j_cen=89, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 15: φ=5.3407, z=0.6975, j_cen=217, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 16: φ=2.5133, z=0.6975, j_cen=102, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 17: φ=5.6549, z=0.6975, j_cen=230, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 18: φ=2.8274, z=0.6975, j_cen=115, k_cen=59, i=[79,88], dj=4, dk=4
+    Pipe 19: φ=5.9690, z=0.6975, j_cen=243, k_cen=59, i=[79,88], dj=4, dk=4
+  IBC mask: flipped 43782 Er + 64460 Ephi + 23412 Ez = 131654 surface cells
+  IBC unmask: set edge_frac=1 at 384 Er + 21952 Ephi + 21744 Ez = 44080 surface cells
+  Face area fixup: 16 Hr + 112 Hphi + 72 Hz faces restored (cavity-side only)
+
+  Phase A: PEC pipe-operator RQI (seed for IBC)
+  Port masks: 288 free boundary points (ports)
+    PEC Pipe RQI: sigma0=5.071083
+      iter 0: k2=5.0685120662, MINRES=1401
+      iter 1: k2=5.0685120663, MINRES=1901
+    PEC converged.
+  Phase A done: k2 = 5.0685120663, f = 107.418993 MHz, time = 52.3 s
+
+  Phase B: Conformal IBC RQI (complex, seeded from PEC)
+  Port masks: 288 free boundary points (ports)
+  GPU Operator initialized in IBC (complex) mode
+  Working arrays: 6 E-field + 6 H-field arrays (re+im)
+  IBC mask: flipped 43782 Er + 64460 Ephi + 23412 Ez = 131654 surface cells
+  IBC boundary weights (on surface cells):
+    Er:   43782 boundary cells
+    Ephi: 64460 boundary cells
+    Ez:   23412 boundary cells
+    Total: 131654
+  GPU conformal data: 366.4 MB uploaded
+  Endplate z0 Er mask: 198 pipe-hole cells
+  Endplate z0 Ephi mask: 196 pipe-hole cells
+  Endplate zL Er mask: 154 pipe-hole cells
+  Endplate zL Ephi mask: 150 pipe-hole cells
+  Conformal pipe operator initialized (IBC mask + endplate grid-plane IBC).
+
+  Complex Rayleigh Quotient Iteration (IBC, GPU):
+  Iter   k2_re            k2_im         Q             Residual      GMRES   iter_s
+  -------------------------------------------------------------------------------------
+  0         5.0686185945  -1.05574e-04       48009.9   2.85501e+00     300   135.08s
+  1         5.0684033042  -1.05314e-04       48126.7   1.18554e-01    2000   900.00s
+  2         5.0683994852  -1.05316e-04       48125.8   1.17711e-02    2000   903.09s
+  Converged!
+  f = 107.417800 MHz,  Q = 48125.8
+  Phase rotation: theta = -67.63 deg, max|Re| = 1.4654e+00, max|Im| = 1.6773e-04 (ratio 1.14e-04)
+  Phase B done: f = 107.417800 MHz, Q(eig) = 48125.8, converged, time = 1940.3 s
+
+  Phase C: Q-surface, R/Q, voltage spread
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  Q Factor: STAGE 3: full production (radial+endcap+ports)│
+  ├──────────────────────────────────────────────────────────┤
+  │  Mode:                                                  │
+  │    k^2            = 5.06839949e+00  1/m^2            │
+  │    Frequency      = 107.417800      MHz              │
+  │    Wavelength     = 2.7909          m                │
+  │  Material (copper):                                     │
+  │    Conductivity   = 5.80e+07        S/m              │
+  │    R_s            = 2.7040e-03      Ohm              │
+  │    Skin depth     = 6.38            um               │
+  │  Power dissipation breakdown:                           │
+  │    P_inner  (r=a) = 2.593445e-08    ( 41.9%)          │
+  │    P_outer  (r=b) = 8.641839e-09    ( 14.0%)          │
+  │    P_z0    (z=0)  = 1.363825e-08    ( 22.1%)          │
+  │    P_zL    (z=L)  = 1.363375e-08    ( 22.0%)          │
+  │    P_total        = 6.184830e-08                      │
+  │  Result:                                                │
+  │    Q_0            = 48311                             │
+  │    G factor       = 130.63          Ohm              │
+  └──────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  R/Q: STAGE 3: full production (radial+endcap+ports)  │
+  ├──────────────────────────────────────────────────────────┤
+  │  Mode:                                                  │
+  │    Frequency      = 107.417800   MHz                  │
+  │    omega          = 6.749259e+08   rad/s               │
+  │    W_stored       = 4.427094e-12   [arb]                │
+  ├──────────────────────────────────────────────────────────┤
+  │  Gap voltage (per crossing):                            │
+  │    V_avg          = 4.924019e-01   [arb]                │
+  │    V_min          = 4.914144e-01                        │
+  │    V_max          = 4.934667e-01                        │
+  │    Spread         = 0.4168%                          │
+  ├──────────────────────────────────────────────────────────┤
+  │  R/Q per single crossing:                               │
+  │    Linac   V^2/(wW) =    81.1455 Ohm                 │
+  │    Circuit V^2/(2wW)=    40.5728 Ohm                 │
+  │  R/Q per pass (2 crossings):                            │
+  │    Linac            =   324.5821 Ohm                 │
+  │    Circuit          =   162.2910 Ohm                 │
+  │  R/Q total (10 passes, 20 crossings):              │
+  │    V_total         = 9.848038e+00                        │
+  │    Linac           =   32458.21 Ohm                 │
+  │    Circuit         =   16229.10 Ohm                 │
+  ├──────────────────────────────────────────────────────────┤
+  │  Analytical (TEM HWR):                                  │
+  │    R/Q_linac       =    83.8774 Ohm  (per crossing)  │
+  │    R/Q_circuit     =    41.9387 Ohm  (per crossing)  │
+  └──────────────────────────────────────────────────────────┘
+
+  Per-pass breakdown:
+   Pass     phi_entry       V_entry        V_exit        V_pass    R/Q_pass
+  -----    ----------    ----------    ----------    ----------  ----------
+      1       0.00 deg  -4.924757e-01  -4.924718e-01  9.849475e-01    324.6768
+      2      18.00 deg  -4.928831e-01  -4.927606e-01  9.856437e-01    325.1360
+      3      36.00 deg  -4.916594e-01  -4.914186e-01  9.830780e-01    323.4455
+      4      54.00 deg  -4.918683e-01  -4.915110e-01  9.833793e-01    323.6438
+      5      72.00 deg  -4.934667e-01  -4.930082e-01  9.864750e-01    325.6846
+      6      90.00 deg  -4.932528e-01  -4.927526e-01  9.860054e-01    325.3747
+      7     108.00 deg  -4.934541e-01  -4.930008e-01  9.864549e-01    325.6714
+      8     126.00 deg  -4.918535e-01  -4.915033e-01  9.833568e-01    323.6290
+      9     144.00 deg  -4.916475e-01  -4.914144e-01  9.830619e-01    323.4349
+     10     162.00 deg  -4.928751e-01  -4.927604e-01  9.856355e-01    325.1306
+
+
+================================================================
+  MANUSCRIPT FINAL RESULTS TABLE
+================================================================
+  Grid: Nr=88, Nphi=256, Nz_cav=84
+
+  Quantity                                 Analytical      Stage 1      Stage 2      Stage 3
+                                          (ideal HWR)    (unpert.)  (rad pipes)  (full prod)
+  ----------------------------------------------------------------------------------------------------
+  Frequency [MHz]                            107.4525     107.4451     107.4451     107.4178
+  Q (surface integral)                          48202        48239        48243        48311
+  Q (from eigenvalue, for ref)                      -        48252        48255        48126
+  R/Q linac per crossing [Ohm]                83.8774      83.7940      83.7938      81.1455
+  R/Q circuit per crossing [Ohm]              41.9387      41.8970      41.8969      40.5728
+  R/Q linac total (10 passes) [Ohm]                 -     33517.60     33517.53     32458.21
+  R/Q circuit total (10 passes) [Ohm]               -     16758.80     16758.76     16229.10
+  Gap voltage spread [%]                            -       0.0000       0.0026       0.4168
+
+================================================================
+  DONE. Stage 3 reproduces test_conformal_ibc_full.
+================================================================
