@@ -7,7 +7,7 @@ authors:
     family-names: Krishna
     affiliation: "Indian Institute of Technology Roorkee"
     orcid: "https://orcid.org/0009-0001-8511-8272"
-repository-code: "https://github.com/<your-username>/CUDA_FDFD_HWR"
+repository-code: "https://github.com/gopikrishna911/CUDA_FDFD_HWR"
 license: MIT
 version: "1.0.0"
 date-released: 2026-06-02

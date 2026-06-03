@@ -91,7 +91,7 @@ The wave equation ∇×∇×**E** = *k²***E** is discretized on the Yee stagger
   author       = {Krishna, Gopi},
   title        = {CUDA\_FDFD\_HWR: CUDA-accelerated FDFD eigensolver for coaxial half-wave resonator cavities},
   year         = 2026,
-  url          = {https://github.com/<your-username>/CUDA_FDFD_HWR},
+  url          = {https://github.com/gopikrishna911/CUDA_FDFD_HWR},
   orcid        = {0009-0001-8511-8272}
 }
 ```
