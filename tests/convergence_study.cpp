@@ -1,7 +1,7 @@
 ﻿/*=============================================================================
  * test_convergence_full.cpp
  *
- * Grid convergence study for the FULL HWR model (all pipes).
+ * Grid convergence study for the FULL Rhodotron model (all pipes).
  *
  * Runs the complete cavity (20 radial pipes + 2 endcap pipes) at multiple
  * grid resolutions. Reports f, Q_0, and R/Q at each level, convergence
@@ -277,7 +277,7 @@ int main() {
     /*=========================================================================
      * Define convergence levels by target dr
      *========================================================================*/
-    double dr_targets[] = { 16.0, 10.0, 8.0, 5.5, 4.1, 3.3, 2.7 };
+    double dr_targets[] = { 16.0, 10.0, 8.0, 5.5 };
     int n_levels = sizeof(dr_targets) / sizeof(dr_targets[0]);
 
     double ratio_rdphi_dr = 1.5;
@@ -424,21 +424,29 @@ int main() {
         }
 
         /* CPU operator with inner conductor ports */
+        printf("    [setup] building CPU operator with ports...\n"); fflush(stdout);
         CurlCurlOperator cpu_op;
         curlcurl_op_init_with_ports(&cpu_op, &grid, &inner_ports);
 
         int n = cpu_op.n_total;
 
         /* Material mask: full model (radial + endcap pipes) */
+        printf("    [setup] building material mask (%d radial pipes, %d endcap pipes)...\n",
+            pipes.num_pipes, endcap_pipes.num_pipes); fflush(stdout);
         MaterialMask mask;
         material_mask_build_full(&mask, &pipes, &endcap_pipes, &grid, L, z0_offset);
 
         /* GPU operator with endplate pipe holes */
+        printf("    [setup] initializing GPU pipe operator (n=%d DOFs)...\n", n); fflush(stdout);
         GPU_PipeOperator gpu_op;
         gpu_pipe_operator_init(&gpu_op, &cpu_op, &mask);
+
+        printf("    [setup] setting up endplate pipe-hole masks...\n"); fflush(stdout);
         gpu_pipe_operator_set_endplates(&gpu_op,
             k_endplate_z0, k_endplate_zL,
             &endcap_pipes, &grid, z0_offset);
+
+        printf("    [setup] done, entering solver.\n"); fflush(stdout);
 
         /* TEM initial guess (shifted z coordinate) */
         double* h_x = (double*)calloc(n, sizeof(double));
