@@ -87,8 +87,8 @@ typedef struct {
  *============================================================================*/
 int main() {
     printf("\n");
-    printf("****************************************************************\n");
-    printf("*   CONVERGENCE STUDY — UNPERTURBED COAXIAL HWR CAVITY        *\n");
+    printf("*****************************************************************\n");
+    printf("*             CONVERGENCE STUDY — COAXIAL HWR CAVITY            *\n");
     printf("****************************************************************\n\n");
 
     cuda_print_device_info();
@@ -365,7 +365,7 @@ int main() {
     /* ----- Table 1: PEC results ----- */
     printf("\n");
     printf("  ┌──────────────────────────────────────────────────────────────────────────────────┐\n");
-    printf("  │              PHASE A — PEC CONVERGENCE (unperturbed cavity)                      │\n");
+    printf("  │                           PHASE A — PEC CONVERGENCE                              │\n");
     printf("  │  Reference (lvl %d):  f=%.4f MHz, Q_surf=%.0f                                  │\n",
         i_finest + 1, f_pec_ref / 1e6, Q_pec_ref);
     printf("  │  Analytical:          f=%.4f MHz, Q_0=%.0f                                    │\n",
@@ -418,7 +418,7 @@ int main() {
             Lv->ibc_converged ? "" : "!");
     }
     printf("  └──────────────────────────────────────────────────────────────────────────────────┘\n");
-    printf("    * = finest grid (reference);  ! = IBC did not converge\n");
+    //printf("    * = finest grid (reference);  ! = IBC did not converge\n");
 
     /*=========================================================================
      * Richardson extrapolation (PEC and IBC, two finest converged levels)
@@ -516,7 +516,7 @@ int main() {
     free(levels);
 
     printf("\n****************************************************************\n");
-    printf("*    UNPERTURBED CAVITY CONVERGENCE STUDY COMPLETE             *\n");
+    printf("*                    CONVERGENCE STUDY COMPLETE                  *\n");
     printf("****************************************************************\n\n");
 
     return 0;
