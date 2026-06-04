@@ -1,12 +1,18 @@
 ﻿# Reproducibility repository for CUDA FDFD RF-cavity eigenmode calculations
 
-This repository contains the CUDA/C++ numerical implementation and reproducibility material used for the RF-cavity eigenmode calculations reported in the associated manuscript. It documents the implementation details, benchmark configuration, reference output, and exported field data used in the study.
+This repository contains the CUDA/C++ numerical implementation and reproducibility material used for the RF-cavity eigenmode calculations 
+reported in the associated manuscript. It documents the implementation details, benchmark configuration, reference output, and exported field data used in the study.
 
-The numerical method is a 3D finite-difference frequency-domain (FDFD) eigenmode formulation for coaxial half-wave resonator (HWR) cavities. Curved internal boundaries are resolved with Dey–Mittra conformal subcell weighting on a structured Yee grid, and the lossy impedance-boundary-condition (IBC) eigenmode is obtained by a complex Rayleigh-quotient iteration with a GMRES inner solve. The implementation is CUDA-accelerated.
+The numerical method is a 3D finite-difference frequency-domain (FDFD) eigenmode formulation for coaxial half-wave resonator (HWR) cavities. 
+Curved internal boundaries are resolved with Dey–Mittra conformal subcell weighting on a structured Yee grid, and the lossy impedance-boundary-condition (IBC) 
+eigenmode is obtained by a complex Rayleigh-quotient iteration with a GMRES inner solve. The implementation is CUDA-accelerated.
 
 ## Scope of this repository
 
-This repository is provided as reproducibility material for the associated Computational Physics Paper. It contains the research implementation used to generate the benchmark eigenmode calculations, reference console output, and exported field data discussed in the manuscript. It is not presented as a standalone software package, general-purpose cavity-design tool, or CPC Program Library contribution; it is made available to support transparency of the numerical implementation and reproducibility of the reported results.
+This repository is provided as reproducibility material for the associated Computational Physics Paper. It contains the research implementation 
+used to generate the benchmark eigenmode calculations, reference console output, and exported field data discussed in the manuscript. 
+It is not presented as a standalone software package, general-purpose cavity-design tool, or CPC Program Library contribution; 
+it is made available to support transparency of the numerical implementation and reproducibility of the reported results.
 
 The version corresponding to the revised manuscript is tagged **`v1.0-cpc-revision`**, which identifies the implementation and reference output used for the CPC submission.
 
@@ -22,9 +28,17 @@ The version corresponding to the revised manuscript is tagged **`v1.0-cpc-revisi
 
 ## Numerical method
 
-The wave equation ∇×∇×**E** = *k²***E** is discretized on the Yee staggered grid in cylindrical coordinates (*r*, *φ*, *z*). Curved boundaries are resolved with Dey–Mittra subcell weighting: edge vacuum-fractions and face vacuum-areas (analytic where possible, 8-point Gauss–Legendre where R varies along a face) are baked into the curl kernels, replacing the staircased *O*(d*r*) boundary error with an *O*(α) ≈ 10⁻⁴ term. The lossy eigenmode is found by complex Rayleigh-quotient iteration with GMRES inner solves, seeded by the converged real PEC eigenvector. The lossy eigenvalue uses a finite surface impedance *Z_s = R_s(1+j)*, and the unloaded quality factor is read directly from *Q₀ = −Re(k²)/Im(k²)*. The geometric *G*-factor and *R/Q* are obtained by post-processing the eigenvector with surface integrals on the same conformal weights used by the operator.
+The wave equation ∇×∇×**E** = *k²***E** is discretized on the Yee staggered grid in cylindrical coordinates (*r*, *φ*, *z*). 
+Curved boundaries are resolved with Dey–Mittra subcell weighting: edge vacuum-fractions and face vacuum-areas (analytic where possible, 
+8-point Gauss–Legendre where R varies along a face) are baked into the curl kernels, replacing the staircased *O*(d*r*) 
+boundary error with an *O*(α) ≈ 10⁻⁴ term. The lossy eigenmode is found by complex Rayleigh-quotient iteration with GMRES inner solves, 
+seeded by the converged real PEC eigenvector. The lossy eigenvalue uses a finite surface impedance *Z_s = R_s(1+j)*, 
+and the unloaded quality factor is read directly from *Q₀ = −Re(k²)/Im(k²)*. The geometric *G*-factor and *R/Q* are obtained 
+by post-processing the eigenvector with surface integrals on the same conformal weights used by the operator.
 
-For the coaxial HWR cavity (optionally perturbed by radial beam ports and axial coupling ports), each calculation reports the resonant frequency *f*, the unloaded quality factor *Q₀*, the geometric *G*-factor, *R/Q* (per crossing, per pass, total), the power-dissipation breakdown by surface, and the eigenmode E- and H-field maps on the staggered Yee grid.
+For the coaxial HWR cavity (optionally perturbed by radial beam ports and axial coupling ports), each calculation reports 
+the resonant frequency *f*, the unloaded quality factor *Q₀*, the geometric *G*-factor, *R/Q* (per crossing, per pass, total), 
+the power-dissipation breakdown by surface, and the eigenmode E- and H-field maps on the staggered Yee grid.
 
 ## Benchmark result
 
@@ -98,7 +112,9 @@ An empty diff indicates the reported benchmark numerics were reproduced exactly.
 
 ## Field data
 
-The repository saves the computed field data and reference numerical outputs used for the manuscript. Plotting scripts are not included; the exported field arrays and tabulated reference results are provided so that the reported numerical values and field distributions can be independently inspected or post-processed. The reference console output for the benchmark case is in [`results/baseline/console.log`](results/baseline/console.log).
+The repository saves the computed field data and reference numerical outputs used for the manuscript. Plotting scripts are not included; 
+the exported field arrays and tabulated reference results are provided so that the reported numerical values and field distributions can be 
+independently inspected or post-processed. The reference console output for the benchmark case is in [`results/baseline/console.log`](results/baseline/console.log).
 
 ## Source layout
 
@@ -140,7 +156,12 @@ When the manuscript is published, the citation will be updated to reference the 
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+## License
+
+The source files in this repository are distributed under the MIT License. See [`LICENSE`](LICENSE).
+
+This repository is provided as reproducibility material for the associated manuscript and is not presented as a standalone software package, maintained application, 
+or CPC Program Library contribution.
 
 ## Author
 
