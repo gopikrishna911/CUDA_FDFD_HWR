@@ -40,8 +40,8 @@ Canonical 10-port HWR benchmark case (a = 0.333 m, b = 1.0 m, L = 1.395 m, 20 ra
 
 | Item | Value |
 | --- | --- |
-| GPU (production) | NVIDIA RTX 4060 Mobile |
-| GPU (verification) | NVIDIA RTX A5000 (24 GB) |
+| GPU (production) | NVIDIA RTX A5000 (24 GB) |
+| GPU (verification) | NVIDIA RTX 4060 Mobile |
 | CUDA toolkit | 12.x |
 | Grid (Nr × Nφ × Nz) | 88 × 256 × 117 |
 | Degrees of freedom | ≈ 8.0 M |
