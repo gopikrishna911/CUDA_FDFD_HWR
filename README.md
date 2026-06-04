@@ -119,8 +119,11 @@ The source files and benchmark drivers are kept separate so that the same numeri
 
 ## Citation
 
-If you use this repository, numerical implementation, or reference results, please cite the associated manuscript. 
-A citation entry for the tagged reproducibility version is provided below:
+## Citation
+
+If you use this repository, numerical implementation, reference outputs, or exported field data, please cite the associated manuscript. 
+A citation entry for the tagged reproducibility version is provided through `CITATION.cff`.
+When the manuscript is published, this section will be updated to reference the published article.
 
 ```
 @misc{GK_cuda_fdfd_hwr_2026,
